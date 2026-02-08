@@ -21,11 +21,9 @@ src/main/java/        # Core Backend Logic (Account, Manager, Main)
 src/main/resources/   # SQL Schemas & Database Blueprints
 docs/                 # Architectural Research & Documentation
 
-## 💻 Usage & Execution
+💻 Usage & Execution
 To simulate the logic-driven transaction:
-1. Ensure you have **Java (JDK 8+)** installed.
-2. Compile the files: `javac src/main/java/*.java`.
-3. Run the simulation: `java -cp src/main/java Main`.
-
----
-*Developed as part of the Logic Nexus initiative by [EngReteti](https://github.com/EngReteti).*
+Ensure you have Java (JDK 8+) installed.
+Compile the files: javac src/main/java/*.java.
+Run the simulation: java -cp src/main/java Main.
+Developed as part of the Logic Nexus initiative by EngReteti.
