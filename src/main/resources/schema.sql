@@ -1,20 +1,19 @@
--- Main table to store user balances
-CREATE TABLE accounts (
-    account_id VARCHAR(50) PRIMARY KEY,
+-- Day 3: Persistence Layer Setup
+-- Table to store account details
+CREATE TABLE IF NOT EXISTS accounts (
+    account_id SERIAL PRIMARY KEY,
     owner_name VARCHAR(100) NOT NULL,
     balance DECIMAL(15, 2) DEFAULT 0.00,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table to track every transaction for audit integrity
-CREATE TABLE transactions (
-    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
-    sender_id VARCHAR(50),
-    receiver_id VARCHAR(50),
-    amount DECIMAL(15, 2),
-    status ENUM('PENDING', 'COMPLETED', 'FAILED'),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sender_id) REFERENCES accounts(account_id),
-    FOREIGN KEY (receiver_id) REFERENCES accounts(account_id)
+-- Table to log every transaction for integrity
+CREATE TABLE IF NOT EXISTS transactions (
+    transaction_id SERIAL PRIMARY KEY,
+    sender_id INT REFERENCES accounts(account_id),
+    receiver_id INT REFERENCES accounts(account_id),
+    amount DECIMAL(15, 2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
