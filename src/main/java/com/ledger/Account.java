@@ -1,25 +1,45 @@
 package com.ledger;
-package com.ledger;
-package com.ledger;
-public class Account {
-    private String accountId;
-    private String ownerName;
-    private double balance;
 
-    // Constructor to initialize a new account logic
-    public Account(String accountId, String ownerName, double balance) {
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * Day 4: Account Entity
+ * Represents a financial account in the ledger system.
+ */
+public class Account {
+    private int accountId;
+    private String ownerName;
+    private BigDecimal balance;
+    private LocalDateTime createdAt;
+
+    // Constructor
+    public Account(int accountId, String ownerName, BigDecimal balance) {
         this.accountId = accountId;
         this.ownerName = ownerName;
         this.balance = balance;
+        this.createdAt = LocalDateTime.now();
     }
 
-    // Method to check the current logic of the balance
-    public double getBalance() {
-        return balance;
-    }
+    // Getters and Setters
+    public int getAccountId() { return accountId; }
+    public void setAccountId(int accountId) { this.accountId = accountId; }
 
-    // Logic to update balance during a transaction
-    public void setBalance(double balance) {
-        this.balance = balance;
+    public String getOwnerName() { return ownerName; }
+    public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
+
+    public BigDecimal getBalance() { return balance; }
+    public void setBalance(BigDecimal balance) { this.balance = balance; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "id=" + accountId +
+                ", owner='" + ownerName + '\'' +
+                ", balance=" + balance +
+                '}';
     }
 }
+
