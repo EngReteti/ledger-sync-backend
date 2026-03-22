@@ -2,35 +2,28 @@ package com.ledger;
 
 import java.math.BigDecimal;
 
-/**
- * Day 5: Business Logic
- * Manages fund transfers and ensures data integrity.
- */
 public class TransactionManager {
 
-    /**
-     * Executes a transfer between two accounts.
-     * @param sender The account sending funds.
-     * @param receiver The account receiving funds.
-     * @param amount The value to be transferred.
-     * @return true if successful, false if insufficient funds.
-     */
-    public boolean transfer(Account sender, Account receiver, BigDecimal amount) {
-        // Validation: Ensure amount is positive and sender has enough funds
-        if (amount.compareTo(BigDecimal.ZERO) <= 0 || sender.getBalance().compareTo(amount) < 0) {
-            System.out.println("Transaction Failed: Insufficient funds or invalid amount.");
-            return false;
+    public void transfer(Account sender, Account receiver, BigDecimal amount) throws InsufficientFundsException {
+        // Validation for nulls
+        if (sender == null || receiver == null) {
+            throw new IllegalArgumentException("Accounts cannot be null.");
         }
 
-        // Deduct from sender
+        // Validation for negative amounts
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Transfer amount must be positive.");
+        }
+
+        // Validation for balance
+        if (sender.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Account " + sender.getAccountId() + " has insufficient funds.");
+        }
+
         sender.setBalance(sender.getBalance().subtract(amount));
-        
-        // Add to receiver
         receiver.setBalance(receiver.getBalance().add(amount));
 
-        System.out.println("Transaction Successful: " + amount + " moved from " 
-                           + sender.getOwnerName() + " to " + receiver.getOwnerName());
-        return true;
+        System.out.println("SUCCESS: " + amount + " transferred from " + sender.getOwnerName() + " to " + receiver.getOwnerName());
     }
 }
 
