@@ -17,3 +17,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Day 9: Performance Optimization
+-- Indexing for faster account lookups and transaction history sorting
+CREATE INDEX IF NOT EXISTS idx_accounts_owner ON accounts(owner_name);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
+
