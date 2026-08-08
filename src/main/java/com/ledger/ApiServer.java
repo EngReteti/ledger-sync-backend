@@ -24,19 +24,63 @@ public class ApiServer {
         server.createContext("/", new StaticUiHandler());
         server.createContext("/api/accounts", new AccountsHandler());
         server.createContext("/api/transfer", new TransferHandler());
+        server.createContext("/api/logs", new LogsHandler());
         server.setExecutor(null);
 
         System.out.println("==================================================");
-        System.out.println(" Ledger Service Dashboard running on port " + port);
-        System.out.println(" Dashboard UI: http://localhost:" + port + "/");
-        System.out.println(" API Endpoint: GET http://localhost:" + port + "/api/accounts");
-        System.out.println(" API Endpoint: POST http://localhost:" + port + "/api/transfer");
+        System.out.println(" Ledger Enterprise Platform running on port " + port);
+        System.out.println(" UI Dashboard: http://localhost:" + port + "/");
+        System.out.println(" API Accounts: GET  http://localhost:" + port + "/api/accounts");
+        System.out.println(" API Transfer: POST http://localhost:" + port + "/api/transfer");
+        System.out.println(" API Audit Log: GET  http://localhost:" + port + "/api/logs");
         System.out.println("==================================================");
 
         server.start();
     }
 
-    // Serves Interactive HTML/JS Web Dashboard
+    // Handles GET /api/logs (Enterprise Audit Trail)
+    static class LogsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) {
+            try {
+                if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405, "{\"error\": \"Method Not Allowed. Use GET.\"}");
+                    return;
+                }
+
+                StringBuilder json = new StringBuilder("[");
+                String sql = "SELECT transaction_id, source_account_id, target_account_id, amount, status, created_at FROM transaction_logs ORDER BY transaction_id DESC LIMIT 50";
+                
+                try (Connection conn = DatabaseConfig.getConnection();
+                     PreparedStatement pstmt = conn.prepareStatement(sql);
+                     ResultSet rs = pstmt.executeQuery()) {
+
+                    boolean first = true;
+                    while (rs.next()) {
+                        if (!first) json.append(",");
+                        json.append(String.format("{\"id\": %d, \"src\": %d, \"target\": %d, \"amount\": %.2f, \"status\": \"%s\", \"time\": \"%s\"}",
+                                rs.getInt("transaction_id"),
+                                rs.getInt("source_account_id"),
+                                rs.getInt("target_account_id"),
+                                rs.getBigDecimal("amount"),
+                                rs.getString("status"),
+                                rs.getTimestamp("created_at").toString()));
+                        first = false;
+                    }
+                    conn.commit();
+                }
+                json.append("]");
+
+                sendResponse(exchange, 200, json.toString());
+            } catch (Exception e) {
+                try {
+                    sendResponse(exchange, 500, "{\"error\": \"" + e.getMessage() + "\"}");
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    // Serves Interactive UI with Audit Section
     static class StaticUiHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) {
@@ -46,26 +90,27 @@ public class ApiServer {
                     <html>
                     <head>
                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Ledger Sync Dashboard</title>
+                        <title>Enterprise Ledger Sync</title>
                         <style>
                             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 15px; background: #0f172a; color: #f8fafc; }
                             .card { background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
                             h2, h3 { margin-top: 0; color: #38bdf8; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 100px; }
-                            th, td { text-align: left; padding: 10px; border-bottom: 1px solid #334155; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+                            th, td { text-align: left; padding: 8px; border-bottom: 1px solid #334155; }
                             th { color: #94a3b8; }
-                            input, button { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; }
+                            .badge-success { color: #4ade80; font-weight: bold; }
+                            .badge-failed { color: #f87171; font-weight: bold; }
+                            input, button { width: 100%; padding: 10px; margin: 5px 0 10px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; }
                             button { background: #0284c7; font-weight: bold; border: none; cursor: pointer; }
                             button:active { background: #0369a1; }
-                            #status { font-weight: bold; margin-top: 10px; }
+                            #status { font-weight: bold; margin-top: 5px; }
                         </style>
                     </head>
                     <body>
-                        <h2>Ledger Sync Control Panel</h2>
+                        <h2>Enterprise Ledger Platform</h2>
                         
                         <div class="card">
                             <h3>Live Account Balances</h3>
-                            <button onclick="fetchAccounts()">Refresh Balances</button>
                             <table>
                                 <thead><tr><th>ID</th><th>Holder</th><th>Balance</th></tr></thead>
                                 <tbody id="accountsBody"></tbody>
@@ -73,7 +118,7 @@ public class ApiServer {
                         </div>
 
                         <div class="card">
-                            <h3>Execute Transfer</h3>
+                            <h3>Execute Financial Transfer</h3>
                             <label>Sender Account ID:</label>
                             <input type="number" id="srcId" value="1">
                             
@@ -81,10 +126,19 @@ public class ApiServer {
                             <input type="number" id="targetId" value="2">
                             
                             <label>Amount (Ksh):</label>
-                            <input type="number" id="amount" step="0.01" value="50.00">
+                            <input type="number" id="amount" step="0.01" value="100.00">
                             
                             <button onclick="executeTransfer()">Submit Transfer</button>
                             <div id="status"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3>System Audit Log</h3>
+                            <button onclick="fetchLogs()" style="background: #334155;">Refresh Audit Trail</button>
+                            <table>
+                                <thead><tr><th>Tx ID</th><th>From</th><th>To</th><th>Amount</th><th>Status</th></tr></thead>
+                                <tbody id="logsBody"></tbody>
+                            </table>
                         </div>
 
                         <script>
@@ -95,6 +149,17 @@ public class ApiServer {
                                 tbody.innerHTML = '';
                                 data.forEach(acc => {
                                     tbody.innerHTML += `<tr><td>${acc.id}</td><td>${acc.holder}</td><td>Ksh ${acc.balance.toFixed(2)}</td></tr>`;
+                                });
+                            }
+
+                            async function fetchLogs() {
+                                const res = await fetch('/api/logs');
+                                const data = await res.json();
+                                const tbody = document.getElementById('logsBody');
+                                tbody.innerHTML = '';
+                                data.forEach(log => {
+                                    const badgeClass = log.status === 'SUCCESS' ? 'badge-success' : 'badge-failed';
+                                    tbody.innerHTML += `<tr><td>#${log.id}</td><td>Acc ${log.src}</td><td>Acc ${log.target}</td><td>Ksh ${log.amount.toFixed(2)}</td><td class="${badgeClass}">${log.status}</td></tr>`;
                                 });
                             }
 
@@ -117,14 +182,16 @@ public class ApiServer {
                                 if (res.ok) {
                                     statusDiv.innerText = data.message;
                                     statusDiv.style.color = "#4ade80";
-                                    fetchAccounts();
                                 } else {
                                     statusDiv.innerText = data.message || "Transfer Failed";
                                     statusDiv.style.color = "#f87171";
                                 }
+                                fetchAccounts();
+                                fetchLogs();
                             }
 
                             fetchAccounts();
+                            fetchLogs();
                         </script>
                     </body>
                     </html>
