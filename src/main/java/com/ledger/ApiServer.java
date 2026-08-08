@@ -20,18 +20,128 @@ public class ApiServer {
         int port = 8080;
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-        // Routes
-        server.createContext("/api/transfer", new TransferHandler());
+        // Endpoints
+        server.createContext("/", new StaticUiHandler());
         server.createContext("/api/accounts", new AccountsHandler());
+        server.createContext("/api/transfer", new TransferHandler());
         server.setExecutor(null);
 
         System.out.println("==================================================");
-        System.out.println(" Ledger REST API server running on port " + port);
-        System.out.println(" GET  http://localhost:" + port + "/api/accounts");
-        System.out.println(" POST http://localhost:" + port + "/api/transfer");
+        System.out.println(" Ledger Service Dashboard running on port " + port);
+        System.out.println(" Dashboard UI: http://localhost:" + port + "/");
+        System.out.println(" API Endpoint: GET http://localhost:" + port + "/api/accounts");
+        System.out.println(" API Endpoint: POST http://localhost:" + port + "/api/transfer");
         System.out.println("==================================================");
 
         server.start();
+    }
+
+    // Serves Interactive HTML/JS Web Dashboard
+    static class StaticUiHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) {
+            try {
+                String html = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Ledger Sync Dashboard</title>
+                        <style>
+                            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 15px; background: #0f172a; color: #f8fafc; }
+                            .card { background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
+                            h2, h3 { margin-top: 0; color: #38bdf8; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 100px; }
+                            th, td { text-align: left; padding: 10px; border-bottom: 1px solid #334155; }
+                            th { color: #94a3b8; }
+                            input, button { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; }
+                            button { background: #0284c7; font-weight: bold; border: none; cursor: pointer; }
+                            button:active { background: #0369a1; }
+                            #status { font-weight: bold; margin-top: 10px; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Ledger Sync Control Panel</h2>
+                        
+                        <div class="card">
+                            <h3>Live Account Balances</h3>
+                            <button onclick="fetchAccounts()">Refresh Balances</button>
+                            <table>
+                                <thead><tr><th>ID</th><th>Holder</th><th>Balance</th></tr></thead>
+                                <tbody id="accountsBody"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="card">
+                            <h3>Execute Transfer</h3>
+                            <label>Sender Account ID:</label>
+                            <input type="number" id="srcId" value="1">
+                            
+                            <label>Receiver Account ID:</label>
+                            <input type="number" id="targetId" value="2">
+                            
+                            <label>Amount (Ksh):</label>
+                            <input type="number" id="amount" step="0.01" value="50.00">
+                            
+                            <button onclick="executeTransfer()">Submit Transfer</button>
+                            <div id="status"></div>
+                        </div>
+
+                        <script>
+                            async function fetchAccounts() {
+                                const res = await fetch('/api/accounts');
+                                const data = await res.json();
+                                const tbody = document.getElementById('accountsBody');
+                                tbody.innerHTML = '';
+                                data.forEach(acc => {
+                                    tbody.innerHTML += `<tr><td>${acc.id}</td><td>${acc.holder}</td><td>Ksh ${acc.balance.toFixed(2)}</td></tr>`;
+                                });
+                            }
+
+                            async function executeTransfer() {
+                                const srcId = document.getElementById('srcId').value;
+                                const targetId = document.getElementById('targetId').value;
+                                const amount = document.getElementById('amount').value;
+                                const statusDiv = document.getElementById('status');
+
+                                statusDiv.innerText = "Processing...";
+                                statusDiv.style.color = "#facc15";
+
+                                const res = await fetch('/api/transfer', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ srcId: parseInt(srcId), targetId: parseInt(targetId), amount: parseFloat(amount) })
+                                });
+
+                                const data = await res.json();
+                                if (res.ok) {
+                                    statusDiv.innerText = data.message;
+                                    statusDiv.style.color = "#4ade80";
+                                    fetchAccounts();
+                                } else {
+                                    statusDiv.innerText = data.message || "Transfer Failed";
+                                    statusDiv.style.color = "#f87171";
+                                }
+                            }
+
+                            fetchAccounts();
+                        </script>
+                    </body>
+                    </html>
+                """;
+
+                byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                exchange.sendResponseHeaders(200, bytes.length);
+                OutputStream os = exchange.getResponseBody();
+                os.write(bytes);
+                os.close();
+            } catch (Exception e) {
+                try {
+                    exchange.sendResponseHeaders(500, -1);
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     // Handles GET /api/accounts
